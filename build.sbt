@@ -12,9 +12,7 @@ lazy val commonSettings = Seq(
   }
 )
 
-resolvers += Resolver.sonatypeRepo("snapshots")
-
-libraryDependencies ++= Seq(
+lazy val dependencies = Seq(
   Libraries.catsCore,
   Libraries.catsKernel,
   Libraries.catsMacros,
@@ -25,7 +23,7 @@ libraryDependencies ++= Seq(
   Libraries.log4CatsSlf4j
 )
 
-scalacOptions ++= Seq(
+lazy val options = Seq(
   "-feature",
   "-deprecation",
   "-unchecked",
@@ -36,6 +34,8 @@ scalacOptions ++= Seq(
 lazy val root = (project in file("."))
   .settings(commonSettings: _*)
   .settings(
+    libraryDependencies ++= dependencies,
+    scalacOptions ++= options,
     mainClass in assembly := Some("com.leysoft.ApiCats"),
     assemblyJarName in assembly := "api-cats.jar"
   )
