@@ -19,41 +19,41 @@ object AsyncTask {
   def fromCompletableFuture[F[_]: Async: ContextShift: Logger, A](
     fa: F[CompletableFuture[A]]
   ): F[A] =
-    liftJFuture[F, CompletableFuture[A], A](fa)
+    liftAsyncTask[F, CompletableFuture[A], A](fa)
 
   def fromFuture[F[_]: Async: ContextShift: Logger, A](
     fa: F[Future[A]]
   )(implicit ctx: ExecutionContext): F[A] =
     liftFuture[F, Future[A], A](fa)
 
-  private[leysoft] def liftJFuture[F[_], G <: AsyncTask[A], A](
+  private def liftAsyncTask[F[_], G <: AsyncTask[A], A](
     fa: F[G]
   )(implicit F: Async[F], cs: ContextShift[F], log: Logger[F]): F[A] =
-    log.info("Start...") *> fa.flatMap { future =>
-      F.async { fb: (Either[Throwable, A] => Unit) =>
+    log.info("AsyncTask Start...") *> fa.flatMap { future =>
+      F.async[A] { cb =>
           future.handle[Unit] { (v: A, t: Throwable) =>
-            if (t != null) fb(Left(t))
-            else fb(Right(v))
+            if (t != null) cb(Left(t))
+            else cb(Right(v))
           }
           ()
         }
         .guarantee(cs.shift)
-    } <* log.info("End...")
+    } <* log.info("AsyncTask End...")
 
-  private[leysoft] def liftFuture[F[_]: Async: ContextShift: Logger, G <: Future[
+  private def liftFuture[F[_]: Async: ContextShift: Logger, G <: Future[
     A
   ], A](fa: F[G])(implicit ctx: ExecutionContext): F[A] =
     for {
-      _ <- Logger[F].info("Start...")
+      _ <- Logger[F].info("AsyncTask Start...")
       future <- fa
       async <- Async[F]
-                .async { cb: (Either[Throwable, A] => Unit) =>
+                .async[A] { cb =>
                   future.onComplete {
                     case Success(v) => cb(Right(v))
                     case Failure(t) => cb(Left(t))
                   }
                 }
                 .guarantee(ContextShift[F].shift)
-      _ <- Logger[F].info("End...")
+      _ <- Logger[F].info("AsyncTask End...")
     } yield async
 }

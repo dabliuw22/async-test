@@ -36,6 +36,6 @@ lazy val root = (project in file("."))
   .settings(
     libraryDependencies ++= dependencies,
     scalacOptions ++= options,
-    mainClass in assembly := Some("com.leysoft.ApiCats"),
-    assemblyJarName in assembly := "api-cats.jar"
+    mainClass in assembly := Some("com.leysoft.App"),
+    assemblyJarName in assembly := "async.jar"
   )
