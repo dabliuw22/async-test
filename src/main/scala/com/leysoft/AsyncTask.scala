@@ -21,12 +21,31 @@ object AsyncTask {
   ): F[A] =
     liftAsyncTask[F, CompletableFuture[A], A](fa)
 
+  def fromCompletionStage[F[_]: Async: ContextShift: Logger, A](
+    fa: F[CompletionStage[A]]
+  ): F[A] =
+    liftCompletionStage[F, CompletionStage[A], A](fa)
+
   def fromFuture[F[_]: Async: ContextShift: Logger, A](
     fa: F[Future[A]]
   )(implicit ctx: ExecutionContext): F[A] =
     liftFuture[F, Future[A], A](fa)
 
   private def liftAsyncTask[F[_], G <: AsyncTask[A], A](
+    fa: F[G]
+  )(implicit F: Async[F], cs: ContextShift[F], log: Logger[F]): F[A] =
+    log.info("AsyncTask Start...") *> fa.flatMap { future =>
+      F.async[A] { cb =>
+          future.handle[Unit] { (v: A, t: Throwable) =>
+            if (t != null) cb(Left(t))
+            else cb(Right(v))
+          }
+          ()
+        }
+        .guarantee(cs.shift)
+    } <* log.info("AsyncTask End...")
+
+  private def liftCompletionStage[F[_], G <: CompletionStage[A], A](
     fa: F[G]
   )(implicit F: Async[F], cs: ContextShift[F], log: Logger[F]): F[A] =
     log.info("AsyncTask Start...") *> fa.flatMap { future =>

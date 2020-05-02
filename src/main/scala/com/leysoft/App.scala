@@ -1,6 +1,6 @@
 package com.leysoft
 
-import java.util.concurrent.{CompletableFuture, Executors}
+import java.util.concurrent.{CompletableFuture, CompletionStage, Executors}
 
 import cats.effect.{ExitCode, IO, IOApp}
 import io.chrisdavenport.log4cats.Logger
@@ -20,7 +20,7 @@ object App extends IOApp {
     ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
 
   override def run(args: List[String]): IO[ExitCode] =
-    runCompletableFuture("Name") *> IO { ExitCode.Success }
+    runCompletionStage("Name") *> IO { ExitCode.Success }
 
   def completableFuture(name: String): CompletableFuture[String] =
     CompletableFuture
@@ -28,6 +28,9 @@ object App extends IOApp {
         Thread.sleep(5000)
         name
       }
+
+  def completionStage(name: String): CompletionStage[String] =
+    completableFuture(name)
 
   def future(name: String): Future[String] =
     Future {
@@ -38,6 +41,14 @@ object App extends IOApp {
   def runCompletableFuture(name: String): IO[Unit] =
     logger.info("Start") *> AsyncTask
       .fromCompletableFuture[IO, String] { IO.delay(completableFuture(name)) }
+      .handleError(_ => "Error")
+      .flatMap { name =>
+        logger.info(name)
+      } *> logger.info("End")
+
+  def runCompletionStage(name: String): IO[Unit] =
+    logger.info("Start") *> AsyncTask
+      .fromCompletionStage[IO, String] { IO.delay(completionStage(name)) }
       .handleError(_ => "Error")
       .flatMap { name =>
         logger.info(name)
