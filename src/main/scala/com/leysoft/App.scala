@@ -7,25 +7,31 @@ import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration._
 
 object App extends IOApp {
   import cats.syntax.apply._
   import cats.syntax.applicativeError._
 
-  implicit val logger: Logger[IO] = Slf4jLogger.getLoggerFromName[IO]("App")
+  implicit val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
   implicit val ctx: ExecutionContext = ExecutionContext.Implicits.global
+
+  val sleep = 5 seconds
 
   val blocking: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
 
   override def run(args: List[String]): IO[ExitCode] =
-    runCompletionStage("Name") *> IO { ExitCode.Success }
+    for {
+      _ <- runCompletionStage("Name")
+      _ <- runScheduler("Name")
+    } yield ExitCode.Success
 
   def completableFuture(name: String): CompletableFuture[String] =
     CompletableFuture
       .supplyAsync { () =>
-        Thread.sleep(5000)
+        Thread.sleep(sleep.toMillis)
         name
       }
 
@@ -34,7 +40,7 @@ object App extends IOApp {
 
   def future(name: String): Future[String] =
     Future {
-      Thread.sleep(5000)
+      Thread.sleep(sleep.toMillis)
       name
     }
 
@@ -61,6 +67,19 @@ object App extends IOApp {
       .flatMap { name =>
         logger.info(name)
       } *> logger.info("End")
+
+  lazy val scheduler: IO[Unit] =
+    for {
+      _ <- logger.info("Start")
+      _ <- Scheduler[IO].schedule(logger.info(s"Name"), sleep)
+      _ <- logger.info("End")
+      _ <- scheduler
+    } yield ()
+
+  def runScheduler(name: String): IO[Unit] =
+    logger.info("Start") *> Scheduler[IO]
+      .schedule(logger.info(s"$name"), sleep) <*
+      logger.info("End").flatMap(_ => runScheduler(name))
 
   def run: IO[Unit] =
     for {
